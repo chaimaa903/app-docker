@@ -1,15 +1,37 @@
-version: "3.8"
+version: '3.8'
+
 services:
-  app:
-    build: .
-    command: python3 manage.py runserver 0.0.0.0:8000
-    ports:
-      - "4000:8000"
+
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    env_file:
+      - .env
     volumes:
-      - .:/usr/src/app
-      - sqlite_data:/usr/src/app/db
-    environment:
-      - DATABASE_URL=sqlite:////usr/src/app/db/data.sqlite3
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voting_user -d voting_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: django_web
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
-  sqlite_data:
+  postgres_data:
